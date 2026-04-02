@@ -1,122 +1,234 @@
 import { useNavigate, Link } from 'react-router-dom'
-import logo from '../assets/logo.png' // ✅ ADD THIS
+import { motion } from 'framer-motion'
+import logo from '../assets/logo.png'
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 40 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.6 } }
+}
+
+const stagger = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.15 } }
+}
 
 export default function Landing() {
   const navigate = useNavigate()
 
-  const features = [
-    { icon: 'payments', title: 'Pay-As-You-Go', desc: 'Top up your wallet any amount, any time. No fixed premiums.' },
-    { icon: 'health_and_safety', title: 'Instant Coverage', desc: 'Activate your plan the moment your wallet is funded.' },
-    { icon: 'receipt_long', title: 'Easy Claims', desc: 'Submit claims in seconds. Get paid in 3–5 business days.' },
-    { icon: 'sms', title: 'SMS Alerts', desc: 'Real-time SMS notifications for every payment and update.' },
-  ]
-
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white text-ink">
 
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-5 lg:px-12 py-5 border-b border-ink-border">
-        <div className="flex items-center gap-3">
+      {/* NAV */}
+      <header className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl border-b border-[#dce2f7]">
+        <div className="flex items-center justify-between px-6 h-16">
 
-          {/* ✅ UPDATED LOGO */}
-          <div className="w-9 h-9 rounded-xl bg-blue-brand flex items-center justify-center shadow-blue overflow-hidden">
-            <img 
-              src={logo} 
-              alt="PAYG Logo" 
-              className="w-6 h-6 object-contain"
-            />
+          <div className="flex items-center gap-3">
+            <img src={logo} className="w-7 h-7 object-contain" />
+            <span className="font-extrabold text-[#004ac6] text-xl">PAYG</span>
           </div>
 
-          <span className="font-display font-extrabold text-xl text-ink">PAYG</span>
+          <div className="hidden md:flex items-center gap-6">
+            <Link to="/plans" className="text-sm font-medium hover:text-[#004ac6]">Plans</Link>
+            <button
+              onClick={() => navigate('/auth')}
+              className="bg-[#004ac6] text-white px-4 py-2 rounded-xl font-bold"
+            >
+              Get Started
+            </button>
+          </div>
+
         </div>
+      </header>
 
-        <div className="flex items-center gap-3">
-          <Link to="/privacy" className="hidden lg:block text-sm font-display text-ink-muted hover:text-ink transition-colors">Privacy</Link>
-          <button onClick={() => navigate('/auth')}
-            className="bg-blue-brand text-white font-display font-bold px-5 py-2.5 rounded-2xl text-sm hover:bg-blue-dark transition-colors shadow-blue">
-            Get Started
-          </button>
-        </div>
-      </nav>
+      <main className="pt-20">
 
-      {/* Hero */}
-      <div className="px-5 lg:px-12 pt-14 lg:pt-20 pb-16 max-w-6xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+        {/* HERO */}
+        <section className="px-6 py-20 bg-[#f1f3ff] overflow-hidden">
+          <div className="max-w-7xl mx-auto grid md:grid-cols-2 gap-12 items-center">
 
-          <div>
-            <div className="inline-flex items-center gap-2 bg-green-light border border-green-muted rounded-full px-4 py-1.5 mb-6">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-brand animate-pulse"/>
-              <p className="text-xs font-display font-bold text-green-brand">Licensed by NAICOM · Nigeria</p>
-            </div>
+            {/* TEXT */}
+            <motion.div
+              initial="hidden"
+              whileInView="show"
+              viewport={{ once: true }}
+              variants={stagger}
+              className="text-center md:text-left"
+            >
 
-            <h1 className="font-display font-black text-4xl lg:text-5xl xl:text-6xl text-ink leading-tight mb-5">
-              Health insurance<br/>
-              <span className="text-blue-brand">without the lock-in</span>
-            </h1>
+              <motion.span
+                variants={fadeUp}
+                className="inline-block bg-white text-[#004ac6] px-4 py-1 rounded-full text-xs font-bold mb-6"
+              >
+                Insurance Redefined
+              </motion.span>
 
-            <p className="text-ink-muted text-lg leading-relaxed mb-8 max-w-lg">
-              Pay for coverage exactly when you need it. Top up your wallet, activate your plan, and stay protected — no annual contracts.
-            </p>
+              <motion.h1
+                variants={fadeUp}
+                className="text-5xl md:text-6xl font-black leading-tight mb-6"
+              >
+                Health insurance that fits your{" "}
+                <span className="text-[#004ac6]">daily life</span>
+              </motion.h1>
 
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={() => navigate('/auth')}
-                className="bg-blue-brand text-white font-display font-bold px-8 py-4 rounded-3xl text-base hover:bg-blue-dark active:scale-95 transition-all shadow-blue flex items-center justify-center gap-2">
-                <span className="icon-o text-xl">rocket_launch</span>
-                Start for Free
-              </button>
-              <button onClick={() => navigate('/plans')}
-                className="border-2 border-ink-border text-ink font-display font-bold px-8 py-4 rounded-3xl text-base hover:border-blue-brand hover:text-blue-brand transition-all flex items-center justify-center gap-2">
-                <span className="icon-o text-xl">shield</span>
-                View Plans
-              </button>
-            </div>
+              <motion.p
+                variants={fadeUp}
+                className="text-gray-600 text-lg mb-8 max-w-md mx-auto md:mx-0"
+              >
+                Pay small, stay covered — anytime, anywhere. No contracts.
+              </motion.p>
 
-            <div className="flex flex-wrap gap-4 mt-8">
-              {[['lock', 'SSL Encrypted'], ['verified_user', 'PCI-DSS'], ['support_agent', '24/7 Support'], ['verified', 'NAICOM Licensed']].map(([ic, lb]) => (
-                <div key={lb} className="flex items-center gap-1.5 text-xs text-ink-muted font-display">
-                  <span className="icon-o text-sm text-ink-mid">{ic}</span>{lb}
+              <motion.div variants={fadeUp} className="flex gap-4 justify-center md:justify-start">
+                <button
+                  onClick={() => navigate('/auth')}
+                  className="bg-[#004ac6] text-white px-6 py-3 rounded-xl font-bold"
+                >
+                  Get Started
+                </button>
+
+                <button
+                  onClick={() => navigate('/plans')}
+                  className="border border-[#004ac6] text-[#004ac6] px-6 py-3 rounded-xl font-bold"
+                >
+                  View Plans
+                </button>
+              </motion.div>
+
+            </motion.div>
+
+            {/* HERO IMAGE */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              whileInView={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.8 }}
+              viewport={{ once: true }}
+              className="relative"
+            >
+              <img
+                src="https://images.unsplash.com/photo-1580281657527-47f249e8f5c3"
+                className="rounded-[2.5rem] shadow-2xl h-[420px] w-full object-cover"
+              />
+
+              <motion.div
+                initial={{ opacity: 0, y: 30 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-xl p-4 rounded-2xl shadow-xl"
+              >
+                <p className="font-bold text-sm">Instant Coverage</p>
+                <p className="text-xs text-gray-500">Activated in seconds</p>
+              </motion.div>
+            </motion.div>
+
+          </div>
+        </section>
+
+        {/* IMAGE FEATURES */}
+        <section className="px-6 py-24 bg-white">
+          <motion.div
+            initial="hidden"
+            whileInView="show"
+            viewport={{ once: true }}
+            variants={stagger}
+            className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6"
+          >
+
+            {[
+              {
+                img: "https://images.unsplash.com/photo-1603398938378-e54eab446dde",
+                title: "Smart Wallet",
+                desc: "Fund anytime, stay covered."
+              },
+              {
+                img: "https://images.unsplash.com/photo-1576091160550-2173dba999ef",
+                title: "Hospital Access",
+                desc: "Use trusted hospitals nationwide."
+              },
+              {
+                img: "https://images.unsplash.com/photo-1584515933487-779824d29309",
+                title: "Fast Claims",
+                desc: "Submit and track easily."
+              }
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                variants={fadeUp}
+                className="rounded-[2rem] overflow-hidden shadow-lg"
+              >
+                <img src={item.img} className="h-48 w-full object-cover" />
+                <div className="p-6">
+                  <h3 className="font-bold text-lg">{item.title}</h3>
+                  <p className="text-gray-500 text-sm">{item.desc}</p>
                 </div>
-              ))}
-            </div>
-          </div>
+              </motion.div>
+            ))}
 
-          {/* Right side */}
-          <div className="relative hidden lg:block">
-            <div className="absolute inset-0 bg-gradient-to-br from-blue-light to-transparent rounded-3xl -z-10"/>
-            <div className="flex flex-col gap-3 p-6">
-              {[
-                { name: 'Basic', price: '₦500', icon: 'local_hospital', bg: 'bg-blue-light', ic: 'text-blue-brand', tag: null },
-                { name: 'Standard', price: '₦1,000', icon: 'health_and_safety', bg: 'bg-blue-brand', ic: 'text-white', tag: 'Most Popular' },
-                { name: 'Premium', price: '₦2,000', icon: 'workspace_premium', bg: 'bg-amber-50', ic: 'text-amber-600', tag: null },
-              ].map((p, i) => (
-                <div key={p.name}
-                  className={`bg-white rounded-2xl p-4 flex items-center gap-4 shadow-card transition-all ${i === 1 ? 'scale-[1.03] ring-2 ring-blue-brand/30' : ''}`}>
-                  <div className={`w-11 h-11 rounded-xl ${p.bg} flex items-center justify-center flex-shrink-0`}>
-                    <span className={`icon text-2xl ${p.ic}`}>{p.icon}</span>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-display font-extrabold text-ink">{p.name}</span>
-                      {p.tag && <span className="text-[9px] bg-orange-brand text-white font-display font-bold px-1.5 py-0.5 rounded-full">{p.tag}</span>}
-                    </div>
-                    <p className="text-xs text-ink-muted">Full coverage plan</p>
-                  </div>
-                  <span className="font-display font-black text-ink">{p.price}<span className="text-xs font-semibold text-ink-muted">/mo</span></span>
+          </motion.div>
+        </section>
+
+        {/* TRUST SECTION */}
+        <motion.section
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true }}
+          variants={stagger}
+          className="px-6 py-20 bg-[#f1f3ff]"
+        >
+          <div className="max-w-6xl mx-auto grid md:grid-cols-3 gap-6">
+
+            {[
+              {
+                img: "https://images.unsplash.com/photo-1588776814546-1ffcf47267a5",
+                title: "Secure Payments"
+              },
+              {
+                img: "https://images.unsplash.com/photo-1571772996211-2f02c9727629",
+                title: "Licensed Providers"
+              },
+              {
+                img: "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5",
+                title: "Mobile First"
+              }
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                variants={fadeUp}
+                className="bg-white rounded-[2rem] overflow-hidden shadow"
+              >
+                <img src={item.img} className="h-40 w-full object-cover" />
+                <div className="p-6">
+                  <h3 className="font-bold">{item.title}</h3>
+                  <p className="text-gray-500 text-sm">
+                    Trusted healthcare infrastructure built for you.
+                  </p>
                 </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+              </motion.div>
+            ))}
 
-      {/* Footer unchanged */}
-      <footer className="border-t border-ink-border px-5 lg:px-12 py-6 flex flex-col sm:flex-row items-center justify-between gap-3">
-        <p className="text-xs text-ink-muted font-display">© 2026 PayGo Technologies Ltd. All rights reserved.</p>
-        <div className="flex gap-5">
-          <Link to="/privacy" className="text-xs text-ink-muted hover:text-ink font-display transition-colors">Privacy</Link>
-          <Link to="/terms" className="text-xs text-ink-muted hover:text-ink font-display transition-colors">Terms</Link>
-        </div>
-      </footer>
+          </div>
+        </motion.section>
+
+        {/* CTA */}
+        <motion.section
+          initial={{ opacity: 0, scale: 0.95 }}
+          whileInView={{ opacity: 1, scale: 1 }}
+          viewport={{ once: true }}
+          className="px-6 py-24"
+        >
+          <div className="max-w-5xl mx-auto bg-[#004ac6] text-white text-center p-16 rounded-[3rem]">
+            <h2 className="text-3xl md:text-5xl font-black mb-6">
+              Ready to get started?
+            </h2>
+
+            <button
+              onClick={() => navigate('/auth')}
+              className="bg-white text-[#004ac6] px-8 py-4 rounded-xl font-bold"
+            >
+              Join PAYG
+            </button>
+          </div>
+        </motion.section>
+
+      </main>
     </div>
   )
 }
