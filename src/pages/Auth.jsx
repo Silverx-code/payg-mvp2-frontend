@@ -5,7 +5,7 @@ import { useApp } from '../context/AppContext.jsx'
 const BASE = import.meta.env.VITE_API_BASE_URL
 
 // ─── Determines if we have a real backend to talk to ─────────────────────────
-const hasBackend = () => Boolean(BASE && BASE !== 'http://localhost:5000/api' || false)
+const hasBackend = () => Boolean(BASE && BASE !== 'https://payg-mvp2-backend.onrender.com' || false)
 
 // ─── Generate a local mock OTP for dev/demo mode ─────────────────────────────
 const mockOtp = () => String(Math.floor(1000 + Math.random() * 9000))
