@@ -37,7 +37,7 @@ export default function Landing() {
           </div>
 
           <div className="hidden md:flex items-center gap-6">
-            <Link to="/signin" className="text-base font-medium hover:text-blue-600">
+            <Link to="/auth" className="text-base font-medium hover:text-blue-600">
               Sign In
             </Link>
 
@@ -98,7 +98,7 @@ export default function Landing() {
                 </button>
 
                 <button
-                  onClick={() => navigate('/signin')}
+                  onClick={() => navigate('/auth')}
                   className="border border-gray-300 px-7 py-3.5 rounded-xl font-semibold hover:border-blue-600"
                 >
                   Sign In
