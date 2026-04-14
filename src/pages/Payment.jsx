@@ -1,73 +1,482 @@
 import { useState } from 'react'
-import AppLayout from '../components/AppLayout.jsx'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
+import { usePaystack } from '../hooks/usePaystack.js'
+import AppLayout from '../components/AppLayout.jsx'
+import PageHeader from '../components/PageHeader.jsx'
+
+const QUICK_AMOUNTS = [200, 500, 1000, 2000]
+const AIRTIME_PERCENTAGES = [
+  { value: 10, label: '10%', desc: 'Light deduction', color: 'bg-green-light text-green-brand border-green-muted' },
+  { value: 20, label: '20%', desc: 'Balanced', color: 'bg-blue-light text-blue-brand border-blue-muted', recommended: true },
+  { value: 50, label: '50%', desc: 'Fast coverage', color: 'bg-orange-light text-orange-brand border-orange-muted' },
+]
+const NETWORKS = [
+  { id: 'MTN',     emoji: '🟡', color: 'border-yellow-300 bg-yellow-50' },
+  { id: 'Airtel',  emoji: '🔴', color: 'border-red-200   bg-red-50'    },
+  { id: 'Glo',     emoji: '🟢', color: 'border-green-300 bg-green-50'  },
+  { id: '9mobile', emoji: '🟩', color: 'border-emerald-300 bg-emerald-50' },
+]
+
+// How much airtime a user typically loads per month — used for the preview
+const MONTHLY_AIRTIME_ESTIMATE = 3000
 
 export default function Payment() {
-  const { user } = useApp()
+  const { subscription, addPayment, user, updateAirtimeSettings } = useApp()
+  const { openPaystack } = usePaystack()
+  const navigate = useNavigate()
 
-  const [amount, setAmount] = useState('')
-  const [loading, setLoading] = useState(false)
+  // Payment tab: 'manual' | 'airtime'
+  const [tab,     setTab]     = useState('manual')
+  const [amount,  setAmount]  = useState('')
+  const [method,  setMethod]  = useState('paystack')
+  const [stage,   setStage]   = useState('form')
+  const [error,   setError]   = useState('')
+  const [paidRef, setPaidRef] = useState(null)
 
-  const handlePay = async (e) => {
-    e.preventDefault()
+  // Airtime deduction state
+  const existing = subscription.airtimeDeduction || {}
+  const [airPct,      setAirPct]      = useState(existing.percentage || null)
+  const [airNetwork,  setAirNetwork]  = useState(existing.network || null)
+  const [airSaved,    setAirSaved]    = useState(false)
+  const [airError,    setAirError]    = useState('')
 
-    if (!amount || Number(amount) <= 0) return
+  const remaining = Math.max(0, subscription.planPrice - subscription.walletBalance)
+  const progress  = Math.min((subscription.walletBalance / subscription.planPrice) * 100, 100)
 
-    try {
-      setLoading(true)
+  // Preview: estimated monthly contribution from airtime
+  const estimatedMonthly = airPct ? Math.round(MONTHLY_AIRTIME_ESTIMATE * airPct / 100) : 0
+  const monthsToFull     = airPct ? Math.ceil(subscription.planPrice / estimatedMonthly) : null
 
-      // TODO: integrate payment API (Paystack / Flutterwave)
-      console.log('Processing payment for:', amount)
-
-      setTimeout(() => {
-        setLoading(false)
-        alert('Payment successful (mock)')
-        setAmount('')
-      }, 1500)
-
-    } catch (err) {
-      console.error(err)
-      setLoading(false)
-      alert('Payment failed')
-    }
+  // ── Manual payment ────────────────────────────────────────────────────────
+  const handlePay = () => {
+    const amt = parseInt(amount)
+    if (!amt || amt < 100) { setError('Minimum payment is ₦100'); return }
+    setError('')
+    setStage('processing')
+    openPaystack({
+      email: user?.email || 'user@payg.ng',
+      amount: amt,
+      reference: `PAYG_${Date.now()}`,
+      onSuccess: (response) => {
+        addPayment(amt, response.reference)
+        setPaidRef(response.reference)
+        setStage('success')
+      },
+      onClose: () => { setStage('form'); setError('Payment was cancelled. Try again.') },
+    })
   }
 
-  return (
-    <AppLayout>
-      <div className="min-h-screen px-4 pt-6 pb-24 md:pb-10 md:pt-20">
-        
-        <h1 className="text-2xl font-bold mb-2">Top Up Wallet</h1>
-        <p className="text-gray-500 mb-6">
-          Fund your account to continue using services
-        </p>
+  // ── Save airtime settings ─────────────────────────────────────────────────
+  const handleSaveAirtime = () => {
+    if (!airPct) { setAirError('Select a deduction percentage'); return }
+    if (!airNetwork) { setAirError('Select your network'); return }
+    setAirError('')
+    updateAirtimeSettings({ enabled: true, percentage: airPct, network: airNetwork })
+    setAirSaved(true)
+    setTimeout(() => setAirSaved(false), 3000)
+  }
 
-        <form
-          onSubmit={handlePay}
-          className="bg-white p-4 rounded-xl shadow space-y-4 max-w-md"
-        >
-          <div>
-            <label className="block text-sm font-medium mb-1">
-              Amount (₦)
-            </label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="w-full border rounded-lg px-3 py-2 outline-none focus:ring"
-              placeholder="Enter amount"
-            />
+  const handleDisableAirtime = () => {
+    updateAirtimeSettings({ enabled: false, percentage: null, network: null })
+    setAirPct(null)
+    setAirNetwork(null)
+  }
+
+  // ── Processing screen ─────────────────────────────────────────────────────
+  if (stage === 'processing') {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-5">
+        <div className="text-center">
+          <div className="w-20 h-20 bg-blue-light rounded-full flex items-center justify-center mx-auto mb-6">
+            <span className="w-10 h-10 border-4 border-blue-muted border-t-blue-brand rounded-full spin block"/>
           </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Processing...' : 'Pay Now'}
-          </button>
-        </form>
-
+          <h2 className="font-display font-extrabold text-2xl text-ink mb-2">Opening Paystack…</h2>
+          <p className="text-ink-muted text-sm">Secure payment gateway is loading</p>
+        </div>
       </div>
-    </AppLayout>
+    )
+  }
+
+  // ── Success screen ────────────────────────────────────────────────────────
+  if (stage === 'success') {
+    const amt = parseInt(amount)
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-5">
+        <div className="text-center fu w-full max-w-md mx-auto">
+          <div className="w-24 h-24 bg-green-light rounded-full flex items-center justify-center mx-auto mb-6 ring">
+            <span className="icon text-green-brand text-5xl">check_circle</span>
+          </div>
+          <h2 className="font-display font-extrabold text-2xl text-ink mb-1">Payment Successful!</h2>
+          <p className="text-ink-muted text-sm mb-6">₦{amt.toLocaleString()} added to your insurance wallet</p>
+          <div className="bg-ink-faint rounded-3xl p-5 mb-5 text-left space-y-3">
+            {[
+              ['Amount',      `₦${amt.toLocaleString()}`],
+              ['Reference',   paidRef],
+              ['New Balance', `₦${subscription.walletBalance.toLocaleString()}`],
+              ['Status',      'Confirmed'],
+            ].map(([l, v]) => (
+              <div key={l} className="flex justify-between text-sm">
+                <span className="text-ink-muted font-display">{l}</span>
+                <span className="font-display font-bold text-ink text-xs md:text-sm">{v}</span>
+              </div>
+            ))}
+          </div>
+          <div className="bg-green-light border border-green-muted rounded-2xl p-4 mb-6 flex gap-3 items-start text-left">
+            <span className="icon text-green-brand text-xl flex-shrink-0">sms</span>
+            <div>
+              <p className="text-xs font-display font-bold text-green-brand mb-1">SMS Sent ✓</p>
+              <p className="text-xs text-green-700 italic leading-relaxed">
+                "₦{amt.toLocaleString()} received. Your PAYG coverage is active. Stay healthy! 🛡️"
+              </p>
+            </div>
+          </div>
+          <button onClick={() => navigate('/dashboard')}
+            className="w-full bg-blue-brand text-white font-display font-bold py-4 rounded-3xl shadow-blue hover:bg-blue-dark active:scale-95 transition-all">
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Main form ─────────────────────────────────────────────────────────────
+  return (
+    <>
+      
+      <AppLayout>
+        <div className="pb-28 md:pb-8 md:pt-20">
+          <PageHeader title="Top Up Wallet" subtitle="Fund your insurance wallet"/>
+
+          <div className="px-4 md:px-6 pt-4 flex flex-col gap-4">
+
+            {/* Wallet balance card */}
+            <div className="bg-blue-brand rounded-4xl p-5 md:p-7 relative overflow-hidden fu">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2"/>
+              <p className="text-blue-muted text-xs font-display font-semibold mb-1">Insurance Wallet</p>
+              <p className="font-display font-black text-white text-3xl mb-3">
+                ₦{subscription.walletBalance.toLocaleString()}
+              </p>
+              <div className="w-full h-1.5 bg-white/20 rounded-full overflow-hidden mb-1.5">
+                <div className="h-full bg-white rounded-full transition-all duration-700" style={{ width: `${progress}%` }}/>
+              </div>
+              <div className="flex items-center justify-between">
+                {remaining > 0
+                  ? <p className="text-blue-muted text-xs font-display">
+                      ₦{remaining.toLocaleString()} more for full{' '}
+                      <span className="text-white font-bold">{subscription.plan}</span> coverage
+                    </p>
+                  : <p className="text-blue-muted text-xs font-display">🎉 Fully funded this month!</p>}
+                {subscription.airtimeDeduction?.enabled && (
+                  <div className="flex items-center gap-1 bg-white/15 px-2 py-1 rounded-full">
+                    <span className="icon text-white text-sm">sim_card</span>
+                    <p className="text-white text-[10px] font-display font-bold">
+                      {subscription.airtimeDeduction.percentage}% airtime active
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Tab switcher */}
+            <div className="flex bg-ink-faint rounded-2xl p-1 fu fu1">
+              {[
+                ['manual',  'payments',  'Pay Now'],
+                ['airtime', 'sim_card',  'Airtime Deduction'],
+              ].map(([t, ic, lb]) => (
+                <button key={t} onClick={() => setTab(t)}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-display font-semibold text-sm transition-all ${
+                    tab === t ? 'bg-white text-ink shadow-card' : 'text-ink-muted hover:text-ink'
+                  }`}>
+                  <span className={`text-lg ${tab === t ? 'icon' : 'icon-o'}`}>{ic}</span>
+                  {lb}
+                </button>
+              ))}
+            </div>
+
+            {/* ── TAB: Manual payment ──────────────────────────────────────── */}
+            {tab === 'manual' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 fu">
+
+                  {/* Amount selector */}
+                  <div className="bg-white rounded-3xl p-5 shadow-card">
+                    <p className="text-[10px] font-display font-bold text-ink-muted uppercase tracking-wider mb-3">
+                      Quick Add
+                    </p>
+                    <div className="grid grid-cols-4 gap-2 mb-5">
+                      {QUICK_AMOUNTS.map(a => (
+                        <button key={a} onClick={() => { setAmount(String(a)); setError('') }}
+                          className={`py-3 rounded-2xl font-display font-bold text-sm transition-all relative ${
+                            amount === String(a)
+                              ? 'bg-blue-brand text-white shadow-blue'
+                              : 'bg-ink-faint text-ink hover:bg-blue-light hover:text-blue-brand'
+                          }`}>
+                          {a === remaining && (
+                            <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[8px] bg-orange-brand text-white px-1.5 rounded-full font-display font-bold whitespace-nowrap">
+                              Exact
+                            </span>
+                          )}
+                          ₦{a >= 1000 ? `${a/1000}k` : a}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-[10px] font-display font-bold text-ink-muted uppercase tracking-wider mb-2">
+                      Custom Amount
+                    </p>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-display font-bold text-ink-muted text-lg">₦</span>
+                      <input type="number" value={amount} min={100}
+                        onChange={e => { setAmount(e.target.value); setError('') }}
+                        placeholder="Enter amount (min ₦100)"
+                        className={`w-full bg-ink-faint border-2 rounded-2xl h-13 pl-9 pr-4 py-3.5 font-display font-bold text-lg text-ink transition-all ${
+                          error ? 'border-red-400' : 'border-ink-border focus:border-blue-brand'
+                        }`}/>
+                    </div>
+                    {error && (
+                      <p className="text-red-500 text-xs mt-2 flex items-center gap-1">
+                        <span className="icon-o text-sm">error</span>{error}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Payment method */}
+                  <div className="bg-white rounded-3xl p-5 shadow-card">
+                    <p className="text-[10px] font-display font-bold text-ink-muted uppercase tracking-wider mb-3">
+                      Payment Method
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {[
+                        { id:'paystack',    label:'Paystack',    sub:'Card, bank transfer, USSD',    emoji:'💳', badge:'Recommended' },
+                        { id:'flutterwave', label:'Flutterwave', sub:'Card, mobile money, transfer', emoji:'🌍', badge: null },
+                      ].map(m => (
+                        <button key={m.id} onClick={() => setMethod(m.id)}
+                          className={`flex items-center gap-3 p-4 rounded-2xl border-2 transition-all ${
+                            method === m.id ? 'border-blue-brand bg-blue-light' : 'border-ink-border hover:border-blue-muted'
+                          }`}>
+                          <span className="text-2xl">{m.emoji}</span>
+                          <div className="flex-1 text-left">
+                            <div className="flex items-center gap-2">
+                              <p className="font-display font-bold text-ink text-sm">{m.label}</p>
+                              {m.badge && (
+                                <span className="text-[9px] bg-green-light text-green-brand font-display font-bold px-1.5 py-0.5 rounded-full">
+                                  {m.badge}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-ink-muted">{m.sub}</p>
+                          </div>
+                          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
+                            method === m.id ? 'border-blue-brand' : 'border-ink-border'
+                          }`}>
+                            {method === m.id && <div className="w-2.5 h-2.5 bg-blue-brand rounded-full"/>}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-5">
+                  {[['lock','SSL Secure'],['verified_user','PCI-DSS'],['support_agent','24/7 Support']].map(([ic,lb]) => (
+                    <div key={lb} className="flex items-center gap-1 text-[10px] text-ink-muted font-display">
+                      <span className="icon-o text-sm">{ic}</span> {lb}
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={handlePay}
+                  className="w-full bg-orange-brand text-white font-display font-bold py-4 rounded-3xl shadow-orange hover:bg-orange-600 active:scale-95 transition-all flex items-center justify-center gap-2 text-base">
+                  <span className="icon-o text-xl">payments</span>
+                  Pay ₦{amount ? parseInt(amount).toLocaleString() : '---'} via {method === 'paystack' ? 'Paystack' : 'Flutterwave'}
+                </button>
+                <p className="text-center text-xs text-ink-muted pb-2">Secured by SSL. Your card details are never stored.</p>
+              </>
+            )}
+
+            {/* ── TAB: Airtime deduction ───────────────────────────────────── */}
+            {tab === 'airtime' && (
+              <div className="flex flex-col gap-4 fu">
+
+                {/* Explainer */}
+                <div className="bg-blue-light border border-blue-muted rounded-2xl p-4 flex gap-3 items-start">
+                  <span className="icon text-blue-brand text-xl flex-shrink-0 mt-0.5">sim_card</span>
+                  <div>
+                    <p className="font-display font-bold text-blue-brand text-sm mb-1">How airtime deduction works</p>
+                    <p className="text-xs text-blue-700 leading-relaxed">
+                      Every time you recharge your phone, a percentage of that airtime is automatically
+                      converted to cash and added to your PAYG insurance wallet. No manual action needed.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Current status if already enabled */}
+                {subscription.airtimeDeduction?.enabled && (
+                  <div className="bg-green-light border border-green-muted rounded-2xl p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="icon text-green-brand text-xl">check_circle</span>
+                      <div>
+                        <p className="font-display font-bold text-green-brand text-sm">Airtime deduction active</p>
+                        <p className="text-xs text-green-700">
+                          {subscription.airtimeDeduction.percentage}% deducted on every {subscription.airtimeDeduction.network} recharge
+                        </p>
+                      </div>
+                    </div>
+                    <button onClick={handleDisableAirtime}
+                      className="text-xs font-display font-bold text-red-500 hover:underline">
+                      Disable
+                    </button>
+                  </div>
+                )}
+
+                {/* Step 1: Choose percentage */}
+                <div className="bg-white rounded-3xl p-5 shadow-card">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-6 h-6 rounded-full bg-blue-brand flex items-center justify-center text-white text-xs font-display font-bold flex-shrink-0">1</div>
+                    <p className="font-display font-bold text-ink">Choose deduction percentage</p>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {AIRTIME_PERCENTAGES.map(opt => (
+                      <button key={opt.value} onClick={() => { setAirPct(opt.value); setAirError('') }}
+                        className={`relative flex flex-col items-center p-4 rounded-2xl border-2 transition-all ${
+                          airPct === opt.value
+                            ? opt.color + ' scale-105 shadow-card'
+                            : 'border-ink-border bg-ink-faint hover:border-blue-muted'
+                        }`}>
+                        {opt.recommended && (
+                          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[8px] bg-blue-brand text-white px-2 py-0.5 rounded-full font-display font-bold whitespace-nowrap">
+                            Popular
+                          </span>
+                        )}
+                        <span className="font-display font-black text-2xl text-ink mb-1">{opt.label}</span>
+                        <span className="text-[10px] font-display text-ink-muted text-center leading-tight">{opt.desc}</span>
+                        {airPct === opt.value && (
+                          <span className="icon text-blue-brand text-lg mt-1">check_circle</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Live preview */}
+                  {airPct && (
+                    <div className="mt-4 bg-ink-faint rounded-2xl p-4 fu">
+                      <p className="text-[10px] font-display font-bold text-ink-muted uppercase tracking-wider mb-2">
+                        Estimated contribution
+                      </p>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-display font-bold text-ink">
+                            ~₦{estimatedMonthly.toLocaleString()}<span className="text-ink-muted font-normal text-xs">/month</span>
+                          </p>
+                          <p className="text-xs text-ink-muted">
+                            Based on ₦{MONTHLY_AIRTIME_ESTIMATE.toLocaleString()} avg monthly recharge
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-display font-bold text-ink">
+                            {monthsToFull} month{monthsToFull !== 1 ? 's' : ''}
+                          </p>
+                          <p className="text-xs text-ink-muted">to full coverage</p>
+                        </div>
+                      </div>
+                      {/* Progress bar showing how much this covers */}
+                      <div className="mt-3">
+                        <div className="w-full h-2 bg-ink-border rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-brand rounded-full transition-all duration-500"
+                            style={{ width: `${Math.min((estimatedMonthly / subscription.planPrice) * 100, 100)}%` }}
+                          />
+                        </div>
+                        <p className="text-[10px] text-ink-muted mt-1 font-display">
+                          Covers {Math.min(Math.round((estimatedMonthly / subscription.planPrice) * 100), 100)}% of your ₦{subscription.planPrice.toLocaleString()} {subscription.plan} plan per month
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Step 2: Choose network */}
+                <div className="bg-white rounded-3xl p-5 shadow-card">
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className="w-6 h-6 rounded-full bg-blue-brand flex items-center justify-center text-white text-xs font-display font-bold flex-shrink-0">2</div>
+                    <p className="font-display font-bold text-ink">Select your network</p>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {NETWORKS.map(n => (
+                      <button key={n.id} onClick={() => { setAirNetwork(n.id); setAirError('') }}
+                        className={`flex items-center gap-2 p-3 rounded-2xl border-2 transition-all ${
+                          airNetwork === n.id
+                            ? n.color + ' scale-105 shadow-card'
+                            : 'border-ink-border bg-ink-faint hover:border-blue-muted'
+                        }`}>
+                        <span className="text-xl">{n.emoji}</span>
+                        <span className={`font-display font-bold text-sm ${airNetwork === n.id ? 'text-ink' : 'text-ink-muted'}`}>
+                          {n.id}
+                        </span>
+                        {airNetwork === n.id && (
+                          <span className="icon text-blue-brand text-base ml-auto">check_circle</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* How it's calculated */}
+                <div className="bg-white rounded-3xl p-5 shadow-card">
+                  <p className="font-display font-bold text-ink text-sm mb-3">Example calculation</p>
+                  <div className="space-y-2">
+                    {[
+                      ['You recharge',         '₦1,000'],
+                      [`${airPct || 20}% deducted`, `₦${Math.round(1000 * (airPct || 20) / 100)}`],
+                      ['Airtime remaining',    `₦${1000 - Math.round(1000 * (airPct || 20) / 100)}`],
+                      ['Added to PAYG wallet', `₦${Math.round(1000 * (airPct || 20) / 100)}`],
+                    ].map(([label, value], i) => (
+                      <div key={label} className={`flex items-center justify-between py-2 ${i < 3 ? 'border-b border-ink-border' : ''}`}>
+                        <p className={`text-sm font-display ${i === 3 ? 'font-bold text-green-brand' : 'text-ink-muted'}`}>{label}</p>
+                        <p className={`text-sm font-display font-bold ${i === 3 ? 'text-green-brand' : 'text-ink'}`}>{value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {airError && (
+                  <p className="text-red-500 text-xs flex items-center gap-1">
+                    <span className="icon-o text-base">error</span>{airError}
+                  </p>
+                )}
+
+                {/* Important note */}
+                <div className="bg-orange-light border border-orange-muted rounded-2xl p-4 flex gap-2 items-start">
+                  <span className="icon text-orange-brand text-lg flex-shrink-0 mt-0.5">info</span>
+                  <p className="text-xs text-orange-brand font-display font-semibold leading-relaxed">
+                    Airtime deduction requires your network provider's integration.
+                    This feature is currently in <span className="font-black">beta</span> — you'll receive
+                    an SMS when it's live on your network.
+                  </p>
+                </div>
+
+                {/* Save button */}
+                <button onClick={handleSaveAirtime}
+                  className={`w-full font-display font-bold py-4 rounded-3xl transition-all active:scale-95 flex items-center justify-center gap-2 text-base ${
+                    airSaved
+                      ? 'bg-green-brand text-white'
+                      : 'bg-blue-brand text-white shadow-blue hover:bg-blue-dark'
+                  }`}>
+                  {airSaved ? (
+                    <><span className="icon">check_circle</span> Saved! You're set up.</>
+                  ) : (
+                    <><span className="icon-o">save</span>
+                      {airPct && airNetwork
+                        ? `Enable ${airPct}% deduction on ${airNetwork}`
+                        : 'Save Airtime Settings'}
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </AppLayout>
+    </>
   )
 }

@@ -21,7 +21,7 @@ const MOCK_TRANSACTIONS = []
 const MOCK_NOTIFICATIONS = []
 const MOCK_CLAIMS = []
 
-// --- helpers (localStorage) ---
+// --- helpers ---
 const load = (key, fallback) => {
   try {
     const data = localStorage.getItem(key)
@@ -32,8 +32,7 @@ const load = (key, fallback) => {
 }
 
 export function AppProvider({ children }) {
-
-  // --- STATE (with persistence) ---
+  // ---------------- STATE ----------------
   const [user, setUser] = useState(MOCK_USER)
 
   const [subscription, setSubscription] = useState(() =>
@@ -52,7 +51,7 @@ export function AppProvider({ children }) {
     load('claims', MOCK_CLAIMS)
   )
 
-  // --- persist on change ---
+  // ---------------- PERSISTENCE ----------------
   useEffect(() => {
     localStorage.setItem('subscription', JSON.stringify(subscription))
   }, [subscription])
@@ -71,19 +70,36 @@ export function AppProvider({ children }) {
 
   // ---------------- AUTH ----------------
   const login = useCallback((userData) => {
+    if (!userData || typeof userData !== 'object') return
     setUser(userData)
   }, [])
 
   const logout = useCallback(() => {
     setUser(null)
-    localStorage.clear()
+
+    // remove only app-related data
+    localStorage.removeItem('subscription')
+    localStorage.removeItem('transactions')
+    localStorage.removeItem('notifications')
+    localStorage.removeItem('claims')
   }, [])
 
-  // ---------------- PAYMENTS (FIXED CORE) ----------------
+  const updateUser = useCallback((data) => {
+    if (!data || typeof data !== 'object') return
+
+    setUser(prev => ({
+      ...(prev || {}),
+      ...data,
+    }))
+  }, [])
+
+  // ---------------- PAYMENTS ----------------
   const addPayment = useCallback((amount, reference) => {
+    const value = Number(amount)
+    if (!value || value <= 0) return
 
     setSubscription(prev => {
-      const newBalance = Number(prev.walletBalance) + Number(amount)
+      const newBalance = Number(prev.walletBalance) + value
       const cappedBalance = Math.min(newBalance, prev.planPrice)
 
       return {
@@ -93,12 +109,14 @@ export function AppProvider({ children }) {
       }
     })
 
+    const now = new Date().toISOString()
+
     setTransactions(prev => [
       {
         id: `t${Date.now()}`,
-        amount,
+        amount: value,
         type: 'Payment',
-        date: new Date().toISOString(),
+        date: now,
         status: 'success',
         reference,
       },
@@ -110,8 +128,8 @@ export function AppProvider({ children }) {
         id: `n${Date.now()}`,
         type: 'payment',
         title: 'Payment received',
-        body: `₦${Number(amount).toLocaleString()} added to your wallet.`,
-        time: new Date().toISOString(),
+        body: `₦${value.toLocaleString()} added to your wallet.`,
+        time: now,
         read: false,
       },
       ...prev
@@ -120,32 +138,41 @@ export function AppProvider({ children }) {
 
   // ---------------- PLANS ----------------
   const changePlan = useCallback((planId, planName, planPrice) => {
-    setSubscription({
-      ...DEFAULT_SUB,
+    if (!planId || !planPrice) return
+
+    setSubscription(prev => ({
+      ...prev,
       planId,
       plan: planName,
       planPrice,
       walletBalance: 0,
       status: 'pending',
-    })
+    }))
   }, [])
 
   const cancelSubscription = useCallback(() => {
-    setSubscription(prev => ({ ...prev, status: 'inactive' }))
+    setSubscription(prev => ({
+      ...prev,
+      status: 'inactive'
+    }))
   }, [])
 
   // ---------------- CLAIMS ----------------
   const submitClaim = useCallback((claimData) => {
+    if (!claimData || typeof claimData !== 'object') return null
+
     const newClaim = {
       id: `c${Date.now()}`,
-      ref: `CLM-2026-${String(claims.length + 2).padStart(3, '0')}`,
+      ref: `CLM-2026-${String(Date.now()).slice(-4)}`,
       status: 'submitted',
       date: new Date().toISOString(),
       ...claimData,
     }
+
     setClaims(prev => [newClaim, ...prev])
+
     return newClaim
-  }, [claims.length])
+  }, [])
 
   // ---------------- NOTIFICATIONS ----------------
   const markRead = useCallback((id) => {
@@ -162,18 +189,32 @@ export function AppProvider({ children }) {
 
   const unreadCount = notifications.filter(n => !n.read).length
 
+  // ---------------- EXPORT ----------------
   return (
     <Ctx.Provider value={{
-      user, login, logout,
+      // auth
+      user,
+      login,
+      logout,
+      updateUser,
+
+      // subscription
       subscription,
       setSubscription,
-      changePlan, cancelSubscription,
-      transactions,
+      changePlan,
+      cancelSubscription,
+
+      // payments
       addPayment,
+      transactions,
+
+      // notifications
       notifications,
       markRead,
       markAllRead,
       unreadCount,
+
+      // claims
       claims,
       submitClaim,
     }}>
@@ -182,4 +223,5 @@ export function AppProvider({ children }) {
   )
 }
 
+// ---------------- HOOK ----------------
 export const useApp = () => useContext(Ctx)
