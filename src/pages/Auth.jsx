@@ -261,20 +261,6 @@ export default function Auth() {
               : <><span className="icon-o text-xl">send</span>Send Verification Code</>}
           </button>
 
-          {/* Dev mode badge */}
-          {!hasBackend() && (
-            <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-2xl flex gap-2 items-start">
-              <span className="icon text-amber-500 text-lg flex-shrink-0 mt-0.5">construction</span>
-              <div>
-                <p className="text-xs font-display font-bold text-amber-700 mb-0.5">Demo mode</p>
-                <p className="text-xs text-amber-600 leading-relaxed">
-                  No backend connected. A code will be shown on screen so you can test the full flow.
-                  Set <code className="bg-amber-100 px-1 rounded">VITE_API_BASE_URL</code> in <code className="bg-amber-100 px-1 rounded">.env</code> to use a real backend.
-                </p>
-              </div>
-            </div>
-          )}
-
           <div className="mt-4 p-4 bg-blue-light rounded-2xl">
             <p className="text-xs text-blue-brand font-display font-semibold flex items-start gap-2">
               <span className="icon text-base flex-shrink-0 mt-0.5">info</span>

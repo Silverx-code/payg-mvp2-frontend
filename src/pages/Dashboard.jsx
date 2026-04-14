@@ -186,16 +186,7 @@ export default function Dashboard() {
             </div>
 
           </div>
-
-          {/* NAICOM */}
-          <div className="mt-5 bg-green-light border border-green-muted rounded-2xl p-5 flex gap-3 items-center">
-            <span className="icon text-green-brand text-3xl">verified</span>
-            <div>
-              <p className="font-display font-bold text-green-brand text-base">Licensed by NAICOM</p>
-              <p className="text-sm text-green-700">License No. IA/2024/001 · Regulated by CBN</p>
-            </div>
-          </div>
-
+          
         </div>
       </div>
     </AppLayout>
